@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { FaRegSmile, FaRegMeh, FaRegFrown, FaRegDizzy, FaArrowLeft, FaClipboardCheck } from 'react-icons/fa';
 
-const Assessment = ({ onComplete }) => {
+const Assessment = ({ onComplete, backToHome }) => {
     // State management
     const [questions, setQuestions] = useState([]);
     const [currentSetId, setCurrentSetId] = useState(null);
@@ -18,12 +19,12 @@ const Assessment = ({ onComplete }) => {
 
     const navigate = useNavigate();
 
-    // Options for answers
+    // Options for answers with Icons
     const options = [
-        { label: "Never", value: 0 },
-        { label: "Sometimes", value: 1 },
-        { label: "Often", value: 2 },
-        { label: "Always", value: 3 }
+        { label: "Never", value: 0, icon: <FaRegSmile size={28} />, color: "#00B894", bg: "rgba(0, 184, 148, 0.1)" },
+        { label: "Sometimes", value: 1, icon: <FaRegMeh size={28} />, color: "#FAB1A0", bg: "rgba(250, 177, 160, 0.1)" },
+        { label: "Often", value: 2, icon: <FaRegFrown size={28} />, color: "#FF7675", bg: "rgba(255, 118, 117, 0.1)" },
+        { label: "Always", value: 3, icon: <FaRegDizzy size={28} />, color: "#D63031", bg: "rgba(214, 48, 49, 0.1)" }
     ];
 
     useEffect(() => {
@@ -95,11 +96,24 @@ const Assessment = ({ onComplete }) => {
     const submitAssessment = async (finalAnswers) => {
         setSubmitting(true);
         try {
-            await axios.post('/api/assessment', {
+            const res = await axios.post('/api/assessment', {
                 answers: finalAnswers,
                 questionSetId: currentSetId
             });
-            alert("Assessment completed. Your responses have been recorded confidentially and will help customize your support.");
+
+            // Local history tracking
+            try {
+                const history = JSON.parse(localStorage.getItem('mindease_assessment_history') || '[]');
+                const totalScore = finalAnswers.reduce((acc, curr) => acc + (curr.value || 0), 0);
+                history.push({
+                    date: new Date().toISOString(),
+                    totalScore,
+                    riskLevel: res.data.riskLevel || 'Moderate Risk'
+                });
+                localStorage.setItem('mindease_assessment_history', JSON.stringify(history.slice(-14)));
+            } catch (e) { console.error(e); }
+
+            alert("Assessment completed. Your responses have been recorded confidentially.");
 
             if (onComplete) {
                 onComplete();
@@ -118,80 +132,138 @@ const Assessment = ({ onComplete }) => {
         window.location.href = '/assessment?test=true';
     };
 
-    if (loading) return <div className="text-center p-5">Loading assessment...</div>;
-    if (error) return <div className="text-center p-5 text-red-500">{error}</div>;
+    if (loading) return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--primary-color)' }}>
+            <div className="fade-in" style={{ textAlign: 'center' }}>
+                <div style={{ width: '40px', height: '40px', border: '4px solid rgba(108, 99, 255, 0.1)', borderTopColor: 'var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1.5rem' }}></div>
+                <p style={{ fontWeight: '600', fontSize: '1.1rem' }}>Preparing your assessment...</p>
+            </div>
+        </div>
+    );
+
+    if (error) return <div className="card fade-in" style={{ textAlign: 'center', padding: '3rem', color: '#E53E3E' }}><h3>Error</h3><p>{error}</p></div>;
 
     if (!canTakeAssessment) {
         return (
-            <div className="card fade-in" style={{ maxWidth: '600px', margin: '2rem auto', textAlign: 'center' }}>
-                <h2>Assessment Status</h2>
-                <p>{statusMessage}</p>
+            <div className="card fade-in" style={{ maxWidth: '600px', margin: '3rem auto', textAlign: 'center', padding: '4rem 3rem' }}>
+                <div style={{
+                    width: '80px',
+                    height: '80px',
+                    background: '#F0F3FF',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 2rem',
+                    color: 'var(--primary-color)'
+                }}>
+                    <FaClipboardCheck size={40} />
+                </div>
+                <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Assessment Status</h2>
+                <p style={{ fontSize: '1.2rem', marginBottom: '2.5rem', color: 'var(--sidebar-text)', lineHeight: '1.6' }}>{statusMessage}</p>
+
                 <button
-                    onClick={() => navigate('/')}
-                    style={{ marginTop: '20px', padding: '10px 20px', backgroundColor: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '5px' }}
+                    onClick={() => backToHome ? backToHome() : navigate('/')}
+                    style={{
+                        padding: '16px 32px',
+                        backgroundColor: 'var(--primary-color)',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        boxShadow: '0 8px 16px rgba(108, 99, 255, 0.2)'
+                    }}
                 >
-                    Back to Dashboard
+                    Return to Dashboard
                 </button>
 
-                <div style={{ marginTop: '40px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-                    <p style={{ fontSize: '0.8rem', color: '#999' }}>Developer Options</p>
+
+                <div style={{ marginTop: '3rem', borderTop: '1px solid #F0F3FF', paddingTop: '2rem' }}>
+                    <p style={{ fontSize: '0.9rem', color: '#B0BEC5', marginBottom: '1rem' }}>DEBUG OPTIONS</p>
                     <button
                         onClick={startTestMode}
-                        style={{ padding: '5px 10px', backgroundColor: '#eee', color: '#333', border: 'none', borderRadius: '3px', fontSize: '0.8rem', cursor: 'pointer' }}
+                        style={{ background: 'transparent', color: '#90A4AE', fontSize: '0.85rem', textDecoration: 'underline' }}
                     >
-                        Force Retake (Test Mode)
+                        Force Retake (Development Mode)
                     </button>
                 </div>
             </div>
         );
     }
 
-    if (questions.length === 0) return <div className="text-center p-5">No questions available.</div>;
+    if (questions.length === 0) return <div className="card text-center p-5">No questions available.</div>;
 
     const currentQ = questions[step];
+    const progress = ((step + 1) / questions.length) * 100;
 
     return (
-        <div className="card fade-in" style={{ maxWidth: '600px', margin: '2rem auto', textAlign: 'center' }}>
-            <h2>Mental Health Assessment</h2>
-            <p style={{ marginBottom: '2rem', color: '#666' }}>
-                Please answer honestly. Your result is private and helps the AI assistant support you better.
+        <div className="card fade-in" style={{ maxWidth: '800px', margin: '2rem auto', textAlign: 'center', padding: '4rem 3.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '1rem' }}>
+                <FaClipboardCheck size={24} color="var(--primary-color)" />
+                <h4 style={{ color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem' }}>Self-Assessment</h4>
+            </div>
+            <h2 style={{ color: 'var(--heading-color)', marginBottom: '1rem', fontSize: '2.2rem', fontWeight: '800' }}>How are you feeling?</h2>
+            <p style={{ marginBottom: '3rem', color: 'var(--sidebar-text)', fontSize: '1.1rem' }}>
+                Be honest with yourself. This information is private and helps us support you.
             </p>
 
             {submitting ? (
-                <p>Analyzing responses...</p>
+                <div style={{ padding: '4rem', color: 'var(--primary-color)', textAlign: 'center' }}>
+                    <div style={{ width: '40px', height: '40px', border: '4px solid rgba(108, 99, 255, 0.1)', borderTopColor: 'var(--primary-color)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1.5rem' }}></div>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Analyzing Responses...</h3>
+                    <p style={{ color: 'var(--sidebar-text)' }}>Generating your wellness insights.</p>
+                </div>
             ) : (
                 <>
-                    <div style={{ marginBottom: '1rem' }}>
-                        <span style={{ fontSize: '0.9rem', color: '#888' }}>Question {step + 1} of {questions.length}</span>
-                        <div style={{ width: '100%', height: '4px', background: '#eee', marginTop: '5px', borderRadius: '2px' }}>
-                            <div style={{ width: `${((step + 1) / questions.length) * 100}%`, height: '100%', background: 'var(--primary-color)', transition: 'width 0.3s', borderRadius: '2px' }}></div>
+                    <div style={{ marginBottom: '3.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '1rem', color: 'var(--heading-color)', fontWeight: '700' }}>
+                            <span>Progress</span>
+                            <span>{step + 1} of {questions.length}</span>
+                        </div>
+                        <div className="progress-container">
+                            <div className="progress-bar" style={{ width: `${progress}%` }}></div>
                         </div>
                     </div>
 
-                    <h3 style={{ marginBottom: '1rem', minHeight: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {currentQ.text}
-                    </h3>
+                    <div style={{ minHeight: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '3.5rem', padding: '0 1rem' }}>
+                        <h3 style={{ fontSize: '1.8rem', fontWeight: '700', color: 'var(--heading-color)', lineHeight: '1.4' }}>
+                            {currentQ?.text || "Question loading..."}
+                        </h3>
+                    </div>
 
-                    <div style={{ display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '20px' }}>
                         {options.map((opt) => (
-                            <button
+                            <div
                                 key={opt.value}
                                 onClick={() => handleAnswer(opt.value)}
                                 style={{
-                                    padding: '15px',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '8px',
-                                    background: 'white',
-                                    textAlign: 'left',
+                                    padding: '30px 20px',
+                                    borderRadius: '24px',
+                                    background: '#FFFFFF',
+                                    border: '2px solid #F0F3FF',
+                                    textAlign: 'center',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    fontSize: '1rem'
+                                    transition: 'var(--transition-smooth)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '15px'
                                 }}
-                                onMouseOver={(e) => e.target.style.background = '#f9f9f9'}
-                                onMouseOut={(e) => e.target.style.background = 'white'}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(-8px)';
+                                    e.currentTarget.style.borderColor = opt.color;
+                                    e.currentTarget.style.boxShadow = `0 12px 24px ${opt.color}20`;
+                                    e.currentTarget.style.background = opt.bg;
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.borderColor = '#F0F3FF';
+                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.background = '#FFFFFF';
+                                }}
                             >
-                                {opt.label}
-                            </button>
+                                <div style={{ color: opt.color }}>{opt.icon}</div>
+                                <span style={{ fontWeight: '700', color: 'var(--heading-color)', fontSize: '1.1rem' }}>{opt.label}</span>
+                            </div>
                         ))}
                     </div>
 
@@ -199,15 +271,21 @@ const Assessment = ({ onComplete }) => {
                         <button
                             onClick={() => setStep(step - 1)}
                             style={{
-                                marginTop: '20px',
+                                marginTop: '3.5rem',
                                 background: 'transparent',
-                                color: '#666',
+                                color: 'var(--sidebar-text)',
                                 border: 'none',
-                                textDecoration: 'underline',
-                                cursor: 'pointer'
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                margin: '3.5rem auto 0',
+                                padding: '10px 20px',
+                                fontSize: '1rem',
+                                fontWeight: '600'
                             }}
                         >
-                            Back to previous question
+                            <FaArrowLeft size={14} /> Back to previous question
                         </button>
                     )}
                 </>
@@ -217,3 +295,4 @@ const Assessment = ({ onComplete }) => {
 };
 
 export default Assessment;
+

@@ -34,18 +34,31 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (mobile, password) => {
         const res = await axios.post('/api/auth/login', { mobile, password });
+
+        // Retrieve name from localStorage if it exists for this mobile
+        const storedNames = JSON.parse(localStorage.getItem('mindease_names') || '{}');
+        const name = storedNames[mobile] || 'User';
+
+        const userData = { ...res.data, name };
         localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data));
+        localStorage.setItem('user', JSON.stringify(userData));
         axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-        setUser(res.data);
+        setUser(userData);
     };
 
-    const signup = async (mobile, password) => {
+    const signup = async (mobile, password, name) => {
         const res = await axios.post('/api/auth/signup', { mobile, password });
+
+        // Store name in a dedicated map in localStorage to persist across logins
+        const storedNames = JSON.parse(localStorage.getItem('mindease_names') || '{}');
+        storedNames[mobile] = name;
+        localStorage.setItem('mindease_names', JSON.stringify(storedNames));
+
+        const userData = { ...res.data, name };
         localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data));
+        localStorage.setItem('user', JSON.stringify(userData));
         axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-        setUser(res.data);
+        setUser(userData);
     };
 
     const logout = () => {
